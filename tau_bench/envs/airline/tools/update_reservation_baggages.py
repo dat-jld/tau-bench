@@ -1,7 +1,9 @@
 # Copyright Sierra
 
+from copy import deepcopy
 import json
 from typing import Any, Dict
+from tau_bench.envs.airline.tools.checks import is_annotation_mode, check_bag_allowance
 from tau_bench.envs.tool import Tool
 
 
@@ -17,7 +19,11 @@ class UpdateReservationBaggages(Tool):
         users, reservations = data["users"], data["reservations"]
         if reservation_id not in reservations:
             return "Error: reservation not found"
-        reservation = reservations[reservation_id]
+        reservation = deepcopy(reservations[reservation_id])
+        user = users[reservation["user_id"]]
+
+        if is_annotation_mode() and total_baggages < reservation["total_baggages"]:
+            return "AnnotationError: cannot remove baggages"
 
         total_price = 50 * max(0, nonfree_baggages - reservation["nonfree_baggages"])
         if payment_id not in users[reservation["user_id"]]["payment_methods"]:
@@ -43,6 +49,13 @@ class UpdateReservationBaggages(Tool):
                     "amount": total_price,
                 }
             )
+
+        if is_annotation_mode():
+            bag_error = check_bag_allowance(user, reservation)
+            if bag_error is not None:
+                return bag_error
+
+        reservations[reservation_id] = reservation
 
         return json.dumps(reservation)
 

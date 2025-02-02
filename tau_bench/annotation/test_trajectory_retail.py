@@ -1,32 +1,13 @@
-from tau_bench.envs.retail import tools
-from code_exec import set_env, set_collection
-from trajectory import replay, reset, set_function_names, set_tools, get_functions
-
-set_env("retail")
-set_collection(["orders", "products", "users"])
-set_tools(tools)
-set_function_names([
-    'Calculate',
-    'CancelPendingOrder',
-    'ExchangeDeliveredOrderItems',
-    'FindUserIdByEmail',
-    'FindUserIdByNameZip',
-    'GetOrderDetails',
-    'GetProductDetails',
-    'GetUserDetails',
-    'ListAllProductTypes',
-    'ModifyPendingOrderAddress',
-    'ModifyPendingOrderItems',
-    'ModifyPendingOrderPayment',
-    'ModifyUserAddress',
-    'ReturnDeliveredOrderItems',
-    'TransferToHumanAgents'
-])
-
-reset()
-
-for key, func in get_functions().items():
-    globals()[key] = func
+import pytest
+from .trajectory import replay, reset, get_functions
+    
+@pytest.fixture(autouse=True)
+def run_around_tests():
+    from . import retail
+    reset()
+    for key, func in get_functions().items():
+        globals()[key] = func
+    yield
 
 def test_error():
     assert find_user_id_by_email(email="foo") == 'Error: user not found'

@@ -1,7 +1,9 @@
+from contextlib import redirect_stdout
+from io import StringIO
 import re
 import json
 from functools import partial
-from code_exec import load_data, get_data
+from .code_exec import load_data, get_data
 import inspect
 
 api = []
@@ -49,9 +51,18 @@ def replay(provided_trace=None):
         print("Call:")
         print(json.dumps(call, indent=2))
         print("Result:")
-        print(json.dumps(new_tools[call["name"]](**call["arguments"]), indent=2))
+        if "arguments" in call:
+            arguments = call["arguments"]
+        else:
+            arguments = call["kwargs"]
+        print(json.dumps(new_tools[call["name"]](**arguments), indent=2))
         print()
         i += 1
+        
+def replay_to_string(provided_trace=None):
+    with redirect_stdout(StringIO()) as f:
+        replay(provided_trace)
+    return f.getvalue()
 
 def export():
     print(json.dumps(trace, indent=2))

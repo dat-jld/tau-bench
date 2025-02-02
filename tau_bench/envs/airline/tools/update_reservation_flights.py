@@ -3,6 +3,7 @@
 import json
 from copy import deepcopy
 from typing import Any, Dict, List
+from tau_bench.envs.airline.tools.checks import is_annotation_mode
 from tau_bench.envs.tool import Tool
 
 
@@ -24,19 +25,23 @@ class UpdateReservationFlights(Tool):
         total_price = 0
         flights = deepcopy(flights)
         for flight in flights:
+            current_flight_changed = True
             # if existing flight, ignore
             if _ := [
                 f
                 for f in reservation["flights"]
                 if f["flight_number"] == flight["flight_number"]
                 and f["date"] == flight["date"]
-                and cabin == reservation["cabin"]
             ]:
-                total_price += _[0]["price"] * len(reservation["passengers"])
-                flight["price"] = _[0]["price"]
-                flight["origin"] = _[0]["origin"]
-                flight["destination"] = _[0]["destination"]
-                continue
+                current_flight_changed = False
+                if cabin == reservation["cabin"]:
+                    total_price += _[0]["price"] * len(reservation["passengers"])
+                    flight["price"] = _[0]["price"]
+                    flight["origin"] = _[0]["origin"]
+                    flight["destination"] = _[0]["destination"]
+                    continue
+            if is_annotation_mode() and reservation["cabin"] == "basic_economy" and cabin == "basic_economy" and current_flight_changed:
+                return "AnnotationError: basic economy flights cannot be modified"
             flight_number = flight["flight_number"]
             if flight_number not in data["flights"]:
                 return f"Error: flight {flight_number} not found"
@@ -72,6 +77,22 @@ class UpdateReservationFlights(Tool):
             and payment_method["amount"] < total_price
         ):
             return "Error: gift card balance is not enough"
+        
+        #  check flights
+        if is_annotation_mode():
+            if flights[0]["origin"] != reservation["origin"]:
+                return "AnnotationError: origin cannot be changed"
+            if reservation["flight_type"] == "one_way":
+                if flights[-1]["destination"] != reservation["destination"]:
+                    return "AnnotationError: destination cannot be changed"
+            else:
+                if flights[-1]["destination"] != reservation["origin"]:
+                    return "AnnotationError: round trips must return to origin"
+                pre_destination_flights = [i for i in range(0, len(flights) - 1) if flights[i]["destination"] == reservation["destination"]]
+                if len(pre_destination_flights) == 0:
+                    return "AnnotationError: one intermediary flight must stop at the destination"
+                if not any(flights[i + 1]["origin"] == reservation["destination"] for i in pre_destination_flights):
+                    return "AnnotationError: the flight after arriving at the destination must leave from the destination"
 
         # if checks pass, deduct payment and update seats
         if payment_method["source"] == "gift_card":

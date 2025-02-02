@@ -1,8 +1,10 @@
 # Copyright Sierra
 
+from collections import Counter
 import json
 from copy import deepcopy
 from typing import Any, Dict, List
+from tau_bench.envs.airline.tools.checks import is_annotation_mode, check_bag_allowance
 from tau_bench.envs.tool import Tool
 
 
@@ -22,6 +24,9 @@ class BookReservation(Tool):
         nonfree_baggages: int,
         insurance: str,
     ) -> str:
+        if is_annotation_mode() and len(passengers) > 5:
+            return "AnnotationError: too many passengers"
+
         reservations, users = data["reservations"], data["users"]
         if user_id not in users:
             return "Error: user not found"
@@ -73,20 +78,34 @@ class BookReservation(Tool):
 
         if insurance == "yes":
             total_price += 30 * len(passengers)
+        
+        if is_annotation_mode():
+            bag_error = check_bag_allowance(user, reservation)
+            if bag_error is not None:
+                return bag_error
 
         total_price += 50 * nonfree_baggages
 
+        payment_method_counter = Counter()
         for payment_method in payment_methods:
             payment_id = payment_method["payment_id"]
             amount = payment_method["amount"]
             if payment_id not in user["payment_methods"]:
                 return f"Error: payment method {payment_id} not found"
+            payment_method_counter[user["payment_methods"][payment_id]["source"]] += 1
             if user["payment_methods"][payment_id]["source"] in [
                 "gift_card",
                 "certificate",
             ]:
                 if user["payment_methods"][payment_id]["amount"] < amount:
                     return f"Error: not enough balance in payment method {payment_id}"
+        if is_annotation_mode():
+            if payment_method_counter["credit_card"] > 1:
+                return "AnnotationError: too many credit cards"
+            if payment_method_counter["certificate"] > 1:
+                return "AnnotationError: too many travel certificates"
+            if payment_method_counter["gift_card"] > 3:
+                return "AnnotationError: too many gift cards"
         if sum(payment["amount"] for payment in payment_methods) != total_price:
             return f"Error: payment amount does not add up, total price is {total_price}, but paid {sum(payment['amount'] for payment in payment_methods)}"
 
