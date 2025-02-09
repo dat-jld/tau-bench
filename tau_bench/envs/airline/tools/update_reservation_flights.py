@@ -91,8 +91,8 @@ class UpdateReservationFlights(Tool):
                 pre_destination_flights = [i for i in range(0, len(flights) - 1) if flights[i]["destination"] == reservation["destination"]]
                 if len(pre_destination_flights) == 0:
                     return "AnnotationError: one intermediary flight must stop at the destination"
-                if not any(flights[i + 1]["origin"] == reservation["destination"] for i in pre_destination_flights):
-                    return "AnnotationError: the flight after arriving at the destination must leave from the destination"
+            if any(flights[i]["destination"] != flights[i + 1]["origin"] for i in range(len(flights) - 1)):
+                return "AnnotationError: all flights must leave from the destination of the previous flight"
 
         # if checks pass, deduct payment and update seats
         if payment_method["source"] == "gift_card":
