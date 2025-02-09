@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="tau_bench",
-    version="1.1.0",
+    version="1.2.0",
     description="The Tau-Bench package",
     long_description=open("README.md").read(),
     packages=find_packages(),
